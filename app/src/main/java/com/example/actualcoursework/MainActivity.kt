@@ -20,9 +20,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
@@ -98,7 +101,8 @@ class MainActivity : ComponentActivity() {
 
                         TextField(
                             state= messagestate,
-                            label ={Text("Enter Message")}
+                            label ={Text("Enter Message")},
+                        modifier = Modifier.width(300.dp).height(300.dp)
 
                         )
                         Button(onClick = { sendMessage(messagestate.text.toString()) }) {
@@ -171,9 +175,9 @@ class MainActivity : ComponentActivity() {
                     messageParts.sortBy { it.take(2) }
                     Log.i("BLE_RECV", "Message received: $alreadyRecievedPackets")
                 }
-                if(messageParts.size==expectedPackets){
+                if(alreadyRecievedPackets.size==expectedPackets){
 
-
+                    receivedMessage=""
                     receivedMessage=messageParts.joinToString(separator = ""){it.drop(4).trim()}
                     messageParts.clear()
                     alreadyRecievedPackets.clear()
@@ -199,17 +203,18 @@ class MainActivity : ComponentActivity() {
 
         fun sendMessage(message: String) {
         lifecycleScope.launch {
+
             val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val adapter = bluetoothManager.adapter
-            val advertiser = bluetoothLeAdvertiser
+            val advertiser = adapter?.bluetoothLeAdvertiser
             if (advertiser == null) {
                 Log.e("BLE_SEND", "Advertiser not available")
                 return@launch
             }
             var packets = mutableListOf<String>()
 
-            if(message.length>12){
-                packets = message.chunked(message.length / 12).toMutableList()
+            if(message.length>4){
+                packets = message.chunked(10).toMutableList()
             }
             else{
                 packets.add(message)
@@ -218,10 +223,10 @@ class MainActivity : ComponentActivity() {
 
             var toBeSent = packets.size
 
-            // Stop anything else sending first
-            activeAdvertisingCallback?.let {
-                advertiser.stopAdvertisingSet(it)
-            }
+
+
+
+
 
             val parameters = AdvertisingSetParameters.Builder()
                 .setLegacyMode(true) // Compatible with all devices
@@ -242,26 +247,7 @@ class MainActivity : ComponentActivity() {
                 .setIncludeDeviceName(true)
                 .build()
 
-            activeAdvertisingCallback = object : AdvertisingSetCallback() {
-                override fun onAdvertisingSetStarted(
-                    advertisingSet: AdvertisingSet?,
-                    txPower: Int,
-                    status: Int
-                ) {
-                    if (status == ADVERTISE_SUCCESS) {
-                        Log.i("BLE_SEND", "Broadcasting message: $message")
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Sending...",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    } else {
-                        Log.e("BLE_SEND", "Failed to start advertising: $status")
-                    }
-                }
-            }
+
 
             //advertiser.startAdvertisingSet(
             //parameters, data, scanResponse, null, null, 100
@@ -269,7 +255,30 @@ class MainActivity : ComponentActivity() {
             var index = 0
             var packetnum = ""
             var sendingTotal = ""
+            // Stop anything else sending first
+
             do {
+                val localAdvertisingCallback = object : AdvertisingSetCallback() {
+                    override fun onAdvertisingSetStarted(
+                        advertisingSet: AdvertisingSet?,
+                        txPower: Int,
+                        status: Int
+                    ) {
+                        if (status == ADVERTISE_SUCCESS) {
+                            Log.i("BLE_SEND", "Broadcasting message: $message")
+                            runOnUiThread {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Sending...",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } else {
+                            Log.e("BLE_SEND", "Failed to start advertising: $status")
+                        }
+                    }
+                }
+
 
                  if (index < 10) {
                     packetnum = "0$index"
@@ -291,12 +300,16 @@ class MainActivity : ComponentActivity() {
                     .build()
 
                 advertiser.startAdvertisingSet(
-                    parameters, data, scanResponse, null, null, 100, 3, activeAdvertisingCallback
+                    parameters, data, scanResponse, null, null,  localAdvertisingCallback
                 )
                 index++
-                delay(100)
-                bluetoothLeAdvertiser?.stopAdvertisingSet(activeAdvertisingCallback)
+                delay(150)
+                advertiser.stopAdvertisingSet(localAdvertisingCallback)
+                delay(10)
             } while (index<toBeSent)
+
+
+
 
         }
     }
