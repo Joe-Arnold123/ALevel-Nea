@@ -34,7 +34,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.actualcoursework.ui.theme.ActualCourseworkTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.w3c.dom.Text
 
 class MainActivity : ComponentActivity() {
@@ -47,6 +50,11 @@ class MainActivity : ComponentActivity() {
     private var bluetoothLeAdvertiser: BluetoothLeAdvertiser? = null
     private var activeAdvertisingCallback: AdvertisingSetCallback? = null
     private val messagestate = TextFieldState("Hello")
+    private val messageParts = mutableListOf<String>()
+    private var expectedPackets=0
+    private var recievedPackets=0
+    private var alreadyRecievedPackets = mutableListOf<String>()
+
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -124,7 +132,10 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(missing.toTypedArray())
         }
     }
-
+        override fun onResume() {
+            super.onResume()
+            checkPermissionsAndStart()
+        }
     private fun startAppLogic() {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter = bluetoothManager.adapter
@@ -150,9 +161,25 @@ class MainActivity : ComponentActivity() {
         bluetoothLeAdvertiser = adapter.bluetoothLeAdvertiser
 
         // Start Receiving
-        if (receiver == null) {
+        if (receiver == null) { // new logic to prevent multiple receivers
             receiver = MessageReceiver(this, { msg ->
-                receivedMessage = msg
+                if(!alreadyRecievedPackets.contains(msg.take(2))) {
+                    alreadyRecievedPackets.add(msg.take(2)) //new logic to allow multi packet messages
+                    expectedPackets = (msg.subSequence(2, 4)).toString().toInt()
+                    //messageParts.add(msg.subSequence(4,msg.length).toString())
+                    messageParts.add(msg)
+                    messageParts.sortBy { it.take(2) }
+                    Log.i("BLE_RECV", "Message received: $alreadyRecievedPackets")
+                }
+                if(messageParts.size==expectedPackets){
+
+
+                    receivedMessage=messageParts.joinToString(separator = ""){it.drop(4).trim()}
+                    messageParts.clear()
+                    alreadyRecievedPackets.clear()
+
+                }
+
             },
             sendingDeviceName = { deviceName ->
                 sentDeviceName=deviceName
@@ -160,59 +187,120 @@ class MainActivity : ComponentActivity() {
 
 
         }
+        receiver?.stopScanning()//prevents it failing silently
         receiver?.startScanning()
 
         // Auto-send initial message
-        sendMessage("Initial Hello")
+        sendMessage("Hello")
     }
 
     @SuppressLint("MissingPermission")
-    fun sendMessage(message: String) {
-        val advertiser = bluetoothLeAdvertiser
-        if (advertiser == null) {
-            Log.e("BLE_SEND", "Advertiser not available")
-            return
-        }
-
-        // Stop anything else sending first
-        activeAdvertisingCallback?.let {
-            advertiser.stopAdvertisingSet(it)
-        }
-
-        val parameters = AdvertisingSetParameters.Builder()
-            .setLegacyMode(true) // Compatible with all devices
-            .setConnectable(false) // Quciker Broadcast
-            .setInterval(AdvertisingSetParameters.INTERVAL_LOW) // Fast broadcast
-            .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_MEDIUM)
-            .setScannable(true)
-            .build()
 
 
-        val data = AdvertiseData.Builder()
-            .addManufacturerData(0xFFFF, message.toByteArray())
-            .setIncludeDeviceName(false)
-            .build()
+        fun sendMessage(message: String) {
+        lifecycleScope.launch {
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val adapter = bluetoothManager.adapter
+            val advertiser = bluetoothLeAdvertiser
+            if (advertiser == null) {
+                Log.e("BLE_SEND", "Advertiser not available")
+                return@launch
+            }
+            var packets = mutableListOf<String>()
 
-        // makes phone see the data sometimes weird buggy wokraround
-        val scanResponse = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
-            .build()
+            if(message.length>12){
+                packets = message.chunked(message.length / 12).toMutableList()
+            }
+            else{
+                packets.add(message)
+            }
 
-        activeAdvertisingCallback = object : AdvertisingSetCallback() {
-            override fun onAdvertisingSetStarted(advertisingSet: AdvertisingSet?, txPower: Int, status: Int) {
-                if (status == ADVERTISE_SUCCESS) {
-                    Log.i("BLE_SEND", "Broadcasting message: $message")
-                    runOnUiThread { Toast.makeText(this@MainActivity, "Sending...", Toast.LENGTH_SHORT).show() }
-                } else {
-                    Log.e("BLE_SEND", "Failed to start advertising: $status")
+
+            var toBeSent = packets.size
+
+            // Stop anything else sending first
+            activeAdvertisingCallback?.let {
+                advertiser.stopAdvertisingSet(it)
+            }
+
+            val parameters = AdvertisingSetParameters.Builder()
+                .setLegacyMode(true) // Compatible with all devices
+                .setConnectable(false) // Quicker Broadcast
+                .setInterval(AdvertisingSetParameters.INTERVAL_LOW) // Fast broadcast
+                .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_MEDIUM)
+                .setScannable(true)
+                .build()
+
+
+            //val data = AdvertiseData.Builder()
+            //.addManufacturerData(0xFFFF, message.toByteArray())
+            //.setIncludeDeviceName(false)
+            //.build()
+
+            // makes phone see the data sometimes weird buggy workaround
+            val scanResponse = AdvertiseData.Builder()
+                .setIncludeDeviceName(true)
+                .build()
+
+            activeAdvertisingCallback = object : AdvertisingSetCallback() {
+                override fun onAdvertisingSetStarted(
+                    advertisingSet: AdvertisingSet?,
+                    txPower: Int,
+                    status: Int
+                ) {
+                    if (status == ADVERTISE_SUCCESS) {
+                        Log.i("BLE_SEND", "Broadcasting message: $message")
+                        runOnUiThread {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Sending...",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        Log.e("BLE_SEND", "Failed to start advertising: $status")
+                    }
                 }
             }
-        }
 
-        advertiser.startAdvertisingSet(
-            parameters, data, scanResponse, null, null, 100
-        ,0,activeAdvertisingCallback)
+            //advertiser.startAdvertisingSet(
+            //parameters, data, scanResponse, null, null, 100
+            //,3,activeAdvertisingCallback)
+            var index = 0
+            var packetnum = ""
+            var sendingTotal = ""
+            do {
+
+                 if (index < 10) {
+                    packetnum = "0$index"
+                }
+                else {
+                    packetnum = index.toString()
+                }
+                if (toBeSent < 10) {
+                    sendingTotal = "0$toBeSent"
+                } else {
+                    sendingTotal = toBeSent.toString()
+                }
+                val data = AdvertiseData.Builder()
+                    .addManufacturerData(
+                        0xFFFF,
+                        (packetnum + sendingTotal + packets[index]).toByteArray()
+                    )
+                    .setIncludeDeviceName(false)
+                    .build()
+
+                advertiser.startAdvertisingSet(
+                    parameters, data, scanResponse, null, null, 100, 3, activeAdvertisingCallback
+                )
+                index++
+                delay(100)
+                bluetoothLeAdvertiser?.stopAdvertisingSet(activeAdvertisingCallback)
+            } while (index<toBeSent)
+
+        }
     }
+
 
     @SuppressLint("MissingPermission")
     override fun onStop() {
@@ -238,7 +326,7 @@ class MessageReceiver(
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val record = result.scanRecord ?: return
 
-            Log.d("BLE_RECV", "Found: ${result.device.name} | RSSI: ${result.rssi}")
+
 
             val data = record.getManufacturerSpecificData(0xFFFF)
             if (data != null) {
