@@ -46,7 +46,7 @@ import org.w3c.dom.Text
 class MainActivity : ComponentActivity() {
 
     private var receivedMessage by mutableStateOf("No message received yet")
-    private var receiver: MessageReceiver? = null
+    private var receiver: MessageReceiver2? = null
     private var sentDeviceName by mutableStateOf("")
 
     // Hold references to prevent garbage collection
@@ -171,48 +171,14 @@ class MainActivity : ComponentActivity() {
         bluetoothLeAdvertiser = adapter.bluetoothLeAdvertiser
 
         // Start Receiving
-        if (receiver == null) { // new logic to prevent multiple receivers
-            receiver = MessageReceiver(this, { msg ->
-                if(!alreadyRecievedPackets.contains(msg.take(2))) {
-                    alreadyRecievedPackets.add(msg.take(2)) //new logic to allow multi packet messages
-                    expectedPackets = (msg.subSequence(2, 4)).toString().toInt()
-                    Log.i("BLE_RECV", "Expected packets: $expectedPackets")
-                    //messageParts.add(msg.subSequence(4,msg.length).toString())
-                    messageParts.add(msg)
-                    messageParts.sortBy { it.take(2) }
-
-                    Log.i("BLE_RECV", "Message received: $alreadyRecievedPackets")
-                }
-                if(alreadyRecievedPackets.size==expectedPackets){
-
-                    receivedMessage=""
-                    receivedMessage=messageParts.joinToString(separator = ""){it.drop(4).trim().dropLast(2)}
-                    messageParts.clear()
-                    alreadyRecievedPackets.clear()
-
-                }
-                else if (alreadyRecievedPackets.size>expectedPackets){
-                    receivedMessage="Error"
-                    messageParts.clear()
-                    alreadyRecievedPackets.clear()
-                }
-                else if (msg.take(2)!=messageParts.last().take(2)) {
-                    receivedMessage="Recieving new message "
-                    messageParts.clear()
-                    alreadyRecievedPackets.clear()
-
-                }
-
-
-
-            },
-            sendingDeviceName = { deviceName ->
-                sentDeviceName=deviceName
-            })
-
-
+        if (receiver == null) {
+            receiver = MessageReceiver2(
+                context = this,
+                onMessageReceived = { msg -> receivedMessage = msg },
+                onDeviceNameFound = { name -> sentDeviceName = name }
+            )
         }
-        receiver?.stopScanning()//prevents it failing silently
+        receiver?.stopScanning()
         receiver?.startScanning()
 
         // Auto-send initial message
@@ -339,46 +305,7 @@ class MainActivity : ComponentActivity() {
     }
 
 
-        fun sendControlMessage() {
-            lifecycleScope.launch {
-                val bluetoothManager =
-                    getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-                val adapter = bluetoothManager.adapter
-                val advertiser = adapter?.bluetoothLeAdvertiser
-                if (advertiser == null) {
-                    Log.e("BLE_SEND", "Advertiser not available")
-                    return@launch
-                }
-                val parameters = AdvertisingSetParameters.Builder()
-                    .setLegacyMode(true) // Compatible with all devices
-                    .setConnectable(false) // Quicker Broadcast
-                    .setInterval(AdvertisingSetParameters.INTERVAL_LOW) // Fast broadcast
-                    .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_MEDIUM)
-                    .setScannable(true)
-                    .build()
 
-
-                //val data = AdvertiseData.Builder()
-                //.addManufacturerData(0xFFFF, message.toByteArray())
-                //.setIncludeDeviceName(false)
-                //.build()
-
-                // makes phone see the data sometimes weird buggy workaround
-                val scanResponse = AdvertiseData.Builder()
-                    .setIncludeDeviceName(true)
-                    .build()
-
-
-
-                //advertiser.startAdvertisingSet(
-                //parameters, data, scanResponse, null, null, 100
-                //,3,activeAdvertisingCallback)
-                var index = 0
-                var packetnum = ""
-                var sendingTotal = ""
-                // Stop anything else sending first
-            }
-        }
 
 
 
@@ -392,70 +319,5 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-class MessageReceiver(
-    private val activity: MainActivity,
-    private val onMessageReceived: (String) -> Unit,
-    private val sendingDeviceName: (String) -> Unit
-) {
-    private val bluetoothManager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    private val adapter = bluetoothManager.adapter
-    private var scanning = false
-
-    private val scanCallback = object : ScanCallback() { //what to do when phone gets a message
-        @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_CONNECT,Manifest.permission.BLUETOOTH_ADVERTISE])
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val record = result.scanRecord ?: return
 
 
-
-            val data = record.getManufacturerSpecificData(0xFFFF)
-            if (data != null) {
-                val message = String(data, Charsets.UTF_8)
-                Log.i("BLE_RECV", "MESSAGE DECODED: $message")
-                activity.runOnUiThread {
-                    onMessageReceived(message)
-                }
-                if(record.deviceName != null){
-                    val deviceName = record.deviceName?: "None"
-                    activity.runOnUiThread {
-
-                        sendingDeviceName(deviceName)
-                    }
-                }
-
-                    else{
-                        Log.i("BLE_RECV", "Device name is null")
-                    }
-
-
-                }
-
-            }
-
-
-        override fun onScanFailed(errorCode: Int) {
-            Log.e("BLE_RECV", "Scan failed: $errorCode")
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    fun startScanning() {
-        if (scanning) return
-        val scanner = adapter?.bluetoothLeScanner ?: return
-        
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .build()
-
-        scanner.startScan(null, settings, scanCallback)
-        scanning = true
-        Log.i("BLE_RECV", "Scanning started (Low Latency)")
-    }
-
-    @SuppressLint("MissingPermission")
-    fun stopScanning() {
-        if (!scanning) return
-        adapter?.bluetoothLeScanner?.stopScan(scanCallback)
-        scanning = false
-    }
-}
