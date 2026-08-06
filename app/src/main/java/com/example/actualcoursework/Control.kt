@@ -1,6 +1,6 @@
 package com.example.actualcoursework
 
-import android.R
+
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
@@ -15,7 +15,7 @@ suspend fun sendControlMessage(context: Context,advertising: kotlinx.coroutines.
     val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     val adapter = bluetoothManager.adapter
     val advertiser = adapter?.bluetoothLeAdvertiser
-    val packet:String="CNTRL$operation"
+    val packet:String="CTRL$operation"
 
     if (advertiser == null) {
         Log.e("BLE_SEND", "Advertiser not available")
