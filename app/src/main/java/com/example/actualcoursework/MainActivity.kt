@@ -54,8 +54,8 @@ class MainActivity : ComponentActivity() {
     private var activeAdvertisingCallback: AdvertisingSetCallback? = null
     private val messagestate = TextFieldState("Hello")
     private val messageParts = mutableListOf<String>()
-    private var expectedPackets=0
-    private var recievedPackets=0
+    private var expectedPackets = 0
+    private var recievedPackets = 0
     private var alreadyRecievedPackets = mutableListOf<String>()
 
 
@@ -66,7 +66,11 @@ class MainActivity : ComponentActivity() {
         if (allGranted) {
             startAppLogic()
         } else {
-            Toast.makeText(this, "All permissions (Bluetooth + Location) are required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "All permissions (Bluetooth + Location) are required",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -95,14 +99,14 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(top = 50.dp, bottom = 20.dp)
                         )
                         Text(
-                            text= "Device name: $sentDeviceName",
+                            text = "Device name: $sentDeviceName",
                             modifier = Modifier.padding(top = 60.dp, bottom = 30.dp)
                         )
 
                         TextField(
-                            state= messagestate,
-                            label ={Text("Enter Message")},
-                        modifier = Modifier.width(300.dp).height(300.dp)
+                            state = messagestate,
+                            label = { Text("Enter Message") },
+                            modifier = Modifier.width(300.dp).height(300.dp)
 
                         )
                         Button(onClick = { sendMessage(messagestate.text.toString()) }) {
@@ -117,6 +121,8 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+
 
     private fun checkPermissionsAndStart() {
         val permissions = arrayOf(
@@ -170,19 +176,34 @@ class MainActivity : ComponentActivity() {
                 if(!alreadyRecievedPackets.contains(msg.take(2))) {
                     alreadyRecievedPackets.add(msg.take(2)) //new logic to allow multi packet messages
                     expectedPackets = (msg.subSequence(2, 4)).toString().toInt()
+                    Log.i("BLE_RECV", "Expected packets: $expectedPackets")
                     //messageParts.add(msg.subSequence(4,msg.length).toString())
                     messageParts.add(msg)
                     messageParts.sortBy { it.take(2) }
+
                     Log.i("BLE_RECV", "Message received: $alreadyRecievedPackets")
                 }
                 if(alreadyRecievedPackets.size==expectedPackets){
 
                     receivedMessage=""
-                    receivedMessage=messageParts.joinToString(separator = ""){it.drop(4).trim()}
+                    receivedMessage=messageParts.joinToString(separator = ""){it.drop(4).trim().dropLast(2)}
                     messageParts.clear()
                     alreadyRecievedPackets.clear()
 
                 }
+                else if (alreadyRecievedPackets.size>expectedPackets){
+                    receivedMessage="Error"
+                    messageParts.clear()
+                    alreadyRecievedPackets.clear()
+                }
+                else if (msg.take(2)!=messageParts.last().take(2)) {
+                    receivedMessage="Recieving new message "
+                    messageParts.clear()
+                    alreadyRecievedPackets.clear()
+
+                }
+
+
 
             },
             sendingDeviceName = { deviceName ->
@@ -221,7 +242,7 @@ class MainActivity : ComponentActivity() {
             }
 
 
-            var toBeSent = packets.size
+            val toBeSent = packets.size
 
 
 
@@ -291,10 +312,13 @@ class MainActivity : ComponentActivity() {
                 } else {
                     sendingTotal = toBeSent.toString()
                 }
+                val hash=message.hashCode().toString().subSequence(0,2)
+
+
                 val data = AdvertiseData.Builder()
                     .addManufacturerData(
                         0xFFFF,
-                        (packetnum + sendingTotal + packets[index]).toByteArray()
+                        (packetnum + sendingTotal + packets[index]+hash).toByteArray()
                     )
                     .setIncludeDeviceName(false)
                     .build()
@@ -303,9 +327,9 @@ class MainActivity : ComponentActivity() {
                     parameters, data, scanResponse, null, null,  localAdvertisingCallback
                 )
                 index++
-                delay(150)
+                delay(100)
                 advertiser.stopAdvertisingSet(localAdvertisingCallback)
-                delay(10)
+                delay(70)
             } while (index<toBeSent)
 
 
@@ -313,6 +337,49 @@ class MainActivity : ComponentActivity() {
 
         }
     }
+
+
+        fun sendControlMessage() {
+            lifecycleScope.launch {
+                val bluetoothManager =
+                    getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                val adapter = bluetoothManager.adapter
+                val advertiser = adapter?.bluetoothLeAdvertiser
+                if (advertiser == null) {
+                    Log.e("BLE_SEND", "Advertiser not available")
+                    return@launch
+                }
+                val parameters = AdvertisingSetParameters.Builder()
+                    .setLegacyMode(true) // Compatible with all devices
+                    .setConnectable(false) // Quicker Broadcast
+                    .setInterval(AdvertisingSetParameters.INTERVAL_LOW) // Fast broadcast
+                    .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_MEDIUM)
+                    .setScannable(true)
+                    .build()
+
+
+                //val data = AdvertiseData.Builder()
+                //.addManufacturerData(0xFFFF, message.toByteArray())
+                //.setIncludeDeviceName(false)
+                //.build()
+
+                // makes phone see the data sometimes weird buggy workaround
+                val scanResponse = AdvertiseData.Builder()
+                    .setIncludeDeviceName(true)
+                    .build()
+
+
+
+                //advertiser.startAdvertisingSet(
+                //parameters, data, scanResponse, null, null, 100
+                //,3,activeAdvertisingCallback)
+                var index = 0
+                var packetnum = ""
+                var sendingTotal = ""
+                // Stop anything else sending first
+            }
+        }
+
 
 
     @SuppressLint("MissingPermission")
