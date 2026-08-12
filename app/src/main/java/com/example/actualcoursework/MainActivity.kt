@@ -1,8 +1,6 @@
 package com.example.actualcoursework
 
 import android.Manifest
-import android.R.attr.bottom
-import android.R.attr.text
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
@@ -19,15 +17,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresPermission
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,9 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.actualcoursework.ui.theme.ActualCourseworkTheme
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import org.w3c.dom.Text
 
 class MainActivity : ComponentActivity() {
 
@@ -54,10 +50,9 @@ class MainActivity : ComponentActivity() {
     private var activeAdvertisingCallback: AdvertisingSetCallback? = null
     private val messagestate = TextFieldState("Hello")
     private val messageParts = mutableListOf<String>()
-    private var expectedPackets = 0
-    private var recievedPackets = 0
-    private var alreadyRecievedPackets = mutableListOf<String>()
 
+
+    private var heartbeatJob: Job? = null
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -114,9 +109,6 @@ class MainActivity : ComponentActivity() {
 
                         }
                     }
-                    LaunchedEffect(Unit) {
-                        checkPermissionsAndStart()
-                    }
                 }
             }
         }
@@ -141,12 +133,26 @@ class MainActivity : ComponentActivity() {
         } else {
             requestPermissionLauncher.launch(missing.toTypedArray())
         }
-    }
-        override fun onResume() {
-            super.onResume()
-            checkPermissionsAndStart()
+
         }
-    private fun startAppLogic() {
+
+
+
+
+        override fun onResume() {
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val adapter = bluetoothManager.adapter
+
+
+            super.onResume()
+
+            checkPermissionsAndStart()
+
+
+
+
+        }
+    private  fun startAppLogic() {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter = bluetoothManager.adapter
 
@@ -162,7 +168,8 @@ class MainActivity : ComponentActivity() {
         }
 
         // Check Location toggle
-        val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+        val locationManager =
+            getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
         if (!locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
             Toast.makeText(this, "Please turn on GPS/Location toggle", Toast.LENGTH_LONG).show()
         }
@@ -178,11 +185,37 @@ class MainActivity : ComponentActivity() {
                 onDeviceNameFound = { name -> sentDeviceName = name }
             )
         }
-        receiver?.stopScanning()
+
         receiver?.startScanning()
 
         // Auto-send initial message
-        sendMessage("Hello")
+        sendControlMessage(this, "HRBT", )
+        Log.i("BLE_SEND", "Initial HeartBeat sent")
+        heartbeatJob?.cancel()
+        val flow = flow {
+            while (true) {
+                emit(Unit)
+                delay(15000
+
+                )
+            }
+        }
+        heartbeatJob?.cancel()
+        heartbeatJob = lifecycleScope.launch {
+            flow.collect {
+                Log.i("BLE_SEND", "HeartBeat sent")
+
+                try {
+                    sendControlMessage(this@MainActivity, "HRBT")
+                }
+                catch (e:Exception){
+                    finish()
+
+                    startAppLogic()
+                }
+
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -261,7 +294,14 @@ class MainActivity : ComponentActivity() {
                                 ).show()
                             }
                         } else {
+                            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                            val adapter = bluetoothManager.adapter
+
+
                             Log.e("BLE_SEND", "Failed to start advertising: $status")
+                            finish()
+
+                            startAppLogic()
                         }
                     }
                 }
@@ -313,6 +353,14 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         receiver?.stopScanning()
+        activeAdvertisingCallback?.let {
+            bluetoothLeAdvertiser?.stopAdvertisingSet(it)
+        }
+    }
+    @SuppressLint("MissingPermission") //permission are properly handled but linter is stupid
+    override fun onPause() {
+        receiver?.stopScanning()
+        super.onPause()
         activeAdvertisingCallback?.let {
             bluetoothLeAdvertiser?.stopAdvertisingSet(it)
         }

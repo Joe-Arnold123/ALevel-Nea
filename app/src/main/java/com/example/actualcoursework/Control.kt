@@ -6,11 +6,11 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
 import android.content.Context
 import android.util.Log
+import androidx.core.content.ContextCompat.startActivity
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 
 @SuppressLint("MissingPermission")
-suspend fun sendControlMessage(context: Context,advertising: kotlinx.coroutines.flow.Flow<Boolean>,operation: String) {
+ fun sendControlMessage(context: Context, operation: String) {
 
     val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     val adapter = bluetoothManager.adapter
@@ -46,13 +46,20 @@ suspend fun sendControlMessage(context: Context,advertising: kotlinx.coroutines.
                 Log.i("BLE_SEND", "Control signal started")
             } else {
                 Log.e("BLE_SEND", "Failed to start control advertising: $status")
+               throw Exception("Kaboom")
             }
         }
     }
 
-advertising.first{isTrue -> !isTrue}
-    advertiser.startAdvertisingSet(parameters, data, scanResponse, null, null, callback)
-    delay(100)
-    advertiser.stopAdvertisingSet(callback)
+    advertiser.startAdvertisingSet(parameters,
+        data,
+        scanResponse,
+        null,
+        null,
+        100,
+        1,
+        callback
+    )
+
 }
 
