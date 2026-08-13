@@ -46,7 +46,7 @@ import kotlinx.coroutines.delay
                 Log.i("BLE_SEND", "Control signal started")
             } else {
                 Log.e("BLE_SEND", "Failed to start control advertising: $status")
-               throw Exception("Kaboom")
+
             }
         }
     }
@@ -62,4 +62,31 @@ import kotlinx.coroutines.delay
     )
 
 }
+suspend fun StartTimer(expectedPackets:Int,packetlist: MutableList<String>){
+    delay(400L*expectedPackets.toLong())
+    if(packetlist.size<expectedPackets) {
+        dropped(packetlist,expectedPackets)
+    }
+    else{
+        return
+    }
+
+}
+
+fun dropped(alreadyReceivedPackets: MutableList<String>,expectedPackets: Int){
+
+    val receivedIndices = alreadyReceivedPackets.mapNotNull { packet ->
+        packet.take(2).toIntOrNull()
+    }.toSet()
+    val missingIndices = (0 until expectedPackets).filter { it !in receivedIndices }
+    val formattedMissing = missingIndices.map { it.toString().padStart(2, '0') }
+    Log.i("BLE_RECV", "Missing Packets: $formattedMissing")
+    Log.i("BLE_RECV", "Total missing count: ${missingIndices.size}")
+
+}
+
+
+
+
+
 

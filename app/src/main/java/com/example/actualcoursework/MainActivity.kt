@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
     private var activeAdvertisingCallback: AdvertisingSetCallback? = null
     private val messagestate = TextFieldState("Hello")
     private val messageParts = mutableListOf<String>()
+    private var previousPackets = mutableListOf<String>()
 
 
     private var heartbeatJob: Job? = null
@@ -335,8 +336,9 @@ class MainActivity : ComponentActivity() {
                 index++
                 delay(100)
                 advertiser.stopAdvertisingSet(localAdvertisingCallback)
-                delay(70)
+                delay(60)
             } while (index<toBeSent)
+            previousPackets=packets
 
 
 
