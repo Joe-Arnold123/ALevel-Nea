@@ -12,12 +12,12 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=RZCTA17QLRV" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=5A221FDCH000YY" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=5A221FDCH000YY" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=RZCTA17QLRV" />
               </handle>
             </Target>
           </targets>

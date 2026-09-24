@@ -17,11 +17,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
@@ -30,6 +32,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -51,6 +54,10 @@ class MainActivity : ComponentActivity() {
     private val messagestate = TextFieldState("Hello")
     private val messageParts = mutableListOf<String>()
     private var previousPackets = mutableListOf<String>()
+
+    object status {
+        var isConnected = false
+    }
 
 
     private var heartbeatJob: Job? = null
@@ -108,6 +115,28 @@ class MainActivity : ComponentActivity() {
                         Button(onClick = { sendMessage(messagestate.text.toString()) }) {
                             Text("Send message ")
 
+                        }
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            if(status.isConnected==false){
+                            drawCircle(//add connected device num asw
+
+                                color=Color.Red,
+                                radius = 100f
+
+
+                            )}
+                            else{
+                                drawCircle(//add connected device num asw
+
+                                    color=Color.Green,
+                                    radius = 100f
+
+
+                                )
+
+
+
+                            }
                         }
                     }
                 }
@@ -201,7 +230,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        heartbeatJob?.cancel()
+        heartbeatJob?.cancel() //cancels any current running jobs for the heartbeat
         heartbeatJob = lifecycleScope.launch {
             flow.collect {
                 Log.i("BLE_SEND", "HeartBeat sent")
@@ -300,7 +329,7 @@ class MainActivity : ComponentActivity() {
 
 
                             Log.e("BLE_SEND", "Failed to start advertising: $status")
-                            finish()
+
 
                             startAppLogic()
                         }

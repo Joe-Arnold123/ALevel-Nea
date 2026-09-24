@@ -10,14 +10,14 @@ import androidx.core.content.ContextCompat.startActivity
 import kotlinx.coroutines.delay
 
 @SuppressLint("MissingPermission")
- fun sendControlMessage(context: Context, operation: String) {
+ fun sendControlMessage(context: Context, operation: String,MissingpacketsToBeSent:MutableList<String>?=null) {
 
     val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     val adapter = bluetoothManager.adapter
     val advertiser = adapter?.bluetoothLeAdvertiser
     val packet:String="CTRL$operation"
 
-    if (advertiser == null) {
+    if (advertiser == null) {//still need to fix why it hides from me
         Log.e("BLE_SEND", "Advertiser not available")
         return
     }
@@ -62,7 +62,8 @@ import kotlinx.coroutines.delay
     )
 
 }
-suspend fun StartTimer(expectedPackets:Int,packetlist: MutableList<String>){
+suspend fun StartTimer(expectedPackets:Int,packetlist: MutableList<String>){//calls dropped packet function after 400ms
+    // multiplied by the number of packets
     delay(400L*expectedPackets.toLong())
     if(packetlist.size<expectedPackets) {
         dropped(packetlist,expectedPackets)
@@ -82,6 +83,7 @@ fun dropped(alreadyReceivedPackets: MutableList<String>,expectedPackets: Int){
     val formattedMissing = missingIndices.map { it.toString().padStart(2, '0') }
     Log.i("BLE_RECV", "Missing Packets: $formattedMissing")
     Log.i("BLE_RECV", "Total missing count: ${missingIndices.size}")
+    //sendControlMessage(context = this,operation = "DROP",formattedMissing.toMutableList())
 
 }
 

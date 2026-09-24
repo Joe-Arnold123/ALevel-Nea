@@ -35,6 +35,8 @@ class MessageReceiver2(
     private var timer: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    private var connected: Job? = null
+
     private val scanCallback = object : ScanCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -47,9 +49,9 @@ class MessageReceiver2(
 
                     val deviceName = result.device.name ?: "Unknown Device"
                     onDeviceNameFound(deviceName)
-                scope.launch {
+
                     messageHandler(message)
-                }
+
 
             }
         }
@@ -83,11 +85,16 @@ class MessageReceiver2(
         if (msg.take(4) == "CTRL") {
             if (msg.startsWith("CTRLHRBT")) {
                 Toast.makeText(context, "Heartbeat received", Toast.LENGTH_SHORT).show()
+                MainActivity.status.isConnected=true
                 return
             }
             else if (msg.startsWith("CTRLDROP")) {
                 //send message parts contained in message
                 Log.i("BLE_RECV", "Dropped packets")
+                //sendDropped(list of dropped packets)
+
+
+
 
             }
 
@@ -103,7 +110,7 @@ class MessageReceiver2(
                     expectedPackets = (msg.subSequence(2, 4)).toString().toInt()
                     if(alreadyReceivedPackets.size==1){
                         timer=scope.launch {
-                            StartTimer(expectedPackets,alreadyReceivedPackets)
+                            StartTimer(expectedPackets,alreadyReceivedPackets)//wait for message to end and count packets
                         }
                     }
 
