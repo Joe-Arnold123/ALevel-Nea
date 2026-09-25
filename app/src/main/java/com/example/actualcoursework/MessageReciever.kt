@@ -86,6 +86,11 @@ class MessageReceiver2(
             if (msg.startsWith("CTRLHRBT")) {
                 Toast.makeText(context, "Heartbeat received", Toast.LENGTH_SHORT).show()
                 MainActivity.status.isConnected=true
+                connected?.cancel()
+                connected = scope.launch {
+                    delay(15000)
+                    MainActivity.status.isConnected=false
+                }
                 return
             }
             else if (msg.startsWith("CTRLDROP")) {

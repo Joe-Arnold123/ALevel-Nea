@@ -36,11 +36,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.work.PeriodicWorkRequest
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkRequest
+import androidx.work.Worker
+import androidx.work.WorkerParameters
+import androidx.work.impl.WorkManagerImpl
 import com.example.actualcoursework.ui.theme.ActualCourseworkTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -219,8 +227,9 @@ class MainActivity : ComponentActivity() {
         receiver?.startScanning()
 
         // Auto-send initial message
-        sendControlMessage(this, "HRBT", )
-        Log.i("BLE_SEND", "Initial HeartBeat sent")
+        //sendControlMessage(this, "HRBT", )
+        //Log.i("BLE_SEND", "Initial HeartBeat sent")
+
         heartbeatJob?.cancel()
         val flow = flow {
             while (true) {
@@ -230,22 +239,25 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        heartbeatJob?.cancel() //cancels any current running jobs for the heartbeat
         heartbeatJob = lifecycleScope.launch {
             flow.collect {
-                Log.i("BLE_SEND", "HeartBeat sent")
-
-                try {
-                    sendControlMessage(this@MainActivity, "HRBT")
-                }
-                catch (e:Exception){
-                    finish()
-
-                    startAppLogic()
-                }
-
+                sendControlMessage(this@MainActivity, "HRBT")
             }
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }
 
     @SuppressLint("MissingPermission")
