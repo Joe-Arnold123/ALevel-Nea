@@ -19,7 +19,9 @@ import kotlinx.coroutines.delay
 
     if (advertiser == null) {//still need to fix why it hides from me
         Log.e("BLE_SEND", "Advertiser not available")
-        return
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        val adapter = bluetoothManager.adapter
+        val advertiser = adapter?.bluetoothLeAdvertiser
     }
 
 
@@ -51,7 +53,7 @@ import kotlinx.coroutines.delay
         }
     }
 
-    advertiser.startAdvertisingSet(parameters,
+    advertiser?.startAdvertisingSet(parameters,
         data,
         scanResponse,
         null,
