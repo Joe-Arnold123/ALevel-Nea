@@ -9,6 +9,7 @@ import android.bluetooth.le.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -34,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.work.PeriodicWorkRequest
@@ -162,6 +164,7 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.ACCESS_FINE_LOCATION
         )
 
+
         val missing = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -226,24 +229,12 @@ class MainActivity : ComponentActivity() {
 
         receiver?.startScanning()
 
-        // Auto-send initial message
-        //sendControlMessage(this, "HRBT", )
-        //Log.i("BLE_SEND", "Initial HeartBeat sent")
 
-        heartbeatJob?.cancel()
-        val flow = flow {
-            while (true) {
-                emit(Unit)
-                delay(15000
 
-                )
-            }
-        }
-        heartbeatJob = lifecycleScope.launch {
-            flow.collect {
-                sendControlMessage(this@MainActivity, "HRBT")
-            }
-        }
+
+val serviceIntent = Intent(this, BackgroundTasks::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
+
 
 
 
