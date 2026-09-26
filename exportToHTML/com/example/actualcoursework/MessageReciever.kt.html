@@ -1,0 +1,202 @@
+<html>
+<head>
+<title>MessageReciever.kt</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #2aacb8;}
+.s4 { color: #6aab73;}
+.s5 { color: #7a7e85;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+MessageReciever.kt</font>
+</center></td></tr></table>
+<pre><span class="s0">package </span><span class="s1">com</span><span class="s2">.</span><span class="s1">example</span><span class="s2">.</span><span class="s1">actualcoursework</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">Manifest</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">annotation</span><span class="s2">.</span><span class="s1">SuppressLint</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">bluetooth</span><span class="s2">.</span><span class="s1">BluetoothAdapter</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">bluetooth</span><span class="s2">.</span><span class="s1">BluetoothManager</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">bluetooth</span><span class="s2">.</span><span class="s1">le</span><span class="s2">.</span><span class="s1">ScanCallback</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">bluetooth</span><span class="s2">.</span><span class="s1">le</span><span class="s2">.</span><span class="s1">ScanResult</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">bluetooth</span><span class="s2">.</span><span class="s1">le</span><span class="s2">.</span><span class="s1">ScanFilter</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">bluetooth</span><span class="s2">.</span><span class="s1">le</span><span class="s2">.</span><span class="s1">ScanSettings</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">content</span><span class="s2">.</span><span class="s1">Context</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">util</span><span class="s2">.</span><span class="s1">Log</span>
+<span class="s1">import android</span><span class="s2">.</span><span class="s1">widget</span><span class="s2">.</span><span class="s1">Toast</span>
+<span class="s1">import androidx</span><span class="s2">.</span><span class="s1">annotation</span><span class="s2">.</span><span class="s1">RequiresPermission</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">CoroutineScope</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">Dispatchers</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">Job</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">SupervisorJob</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">cancel</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">delay</span>
+<span class="s1">import kotlinx</span><span class="s2">.</span><span class="s1">coroutines</span><span class="s2">.</span><span class="s1">launch</span>
+
+<span class="s0">class </span><span class="s1">MessageReceiver2</span><span class="s2">(</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">context: Context</span><span class="s2">,</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">onMessageReceived: </span><span class="s2">(</span><span class="s1">String</span><span class="s2">) -&gt; </span><span class="s1">Unit</span><span class="s2">,</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">onDeviceNameFound: </span><span class="s2">(</span><span class="s1">String</span><span class="s2">) -&gt; </span><span class="s1">Unit</span>
+<span class="s2">) {</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">messageParts </span><span class="s2">= </span><span class="s1">mutableListOf</span><span class="s2">&lt;</span><span class="s1">String</span><span class="s2">&gt;()</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">alreadyReceivedPackets </span><span class="s2">= </span><span class="s1">mutableListOf</span><span class="s2">&lt;</span><span class="s1">String</span><span class="s2">&gt;()</span>
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">expectedPackets: Int </span><span class="s2">= </span><span class="s3">0</span>
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">receivedMessage: String </span><span class="s2">= </span><span class="s4">&quot;&quot;</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">bluetoothManager </span><span class="s2">=</span>
+        <span class="s1">context</span><span class="s2">.</span><span class="s1">getSystemService</span><span class="s2">(</span><span class="s1">Context</span><span class="s2">.</span><span class="s1">BLUETOOTH_SERVICE</span><span class="s2">) </span><span class="s0">as </span><span class="s1">BluetoothManager</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">adapter: BluetoothAdapter? </span><span class="s2">= </span><span class="s1">bluetoothManager</span><span class="s2">.</span><span class="s1">adapter</span>
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">scanning </span><span class="s2">= </span><span class="s0">false</span>
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">timer: Job? </span><span class="s2">= </span><span class="s0">null</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">scope </span><span class="s2">= </span><span class="s1">CoroutineScope</span><span class="s2">(</span><span class="s1">Dispatchers</span><span class="s2">.</span><span class="s1">Main </span><span class="s2">+ </span><span class="s1">SupervisorJob</span><span class="s2">())</span>
+
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">connected: Job? </span><span class="s2">= </span><span class="s0">null</span>
+
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">scanCallback </span><span class="s2">= </span><span class="s0">object </span><span class="s1">: ScanCallback</span><span class="s2">() {</span>
+        <span class="s1">@RequiresPermission</span><span class="s2">(</span><span class="s1">Manifest</span><span class="s2">.</span><span class="s1">permission</span><span class="s2">.</span><span class="s1">BLUETOOTH_CONNECT</span><span class="s2">)</span>
+        <span class="s1">override </span><span class="s0">fun </span><span class="s1">onScanResult</span><span class="s2">(</span><span class="s1">callbackType: Int</span><span class="s2">, </span><span class="s1">result: ScanResult</span><span class="s2">) {</span>
+            <span class="s0">val </span><span class="s1">scanRecord </span><span class="s2">= </span><span class="s1">result</span><span class="s2">.</span><span class="s1">scanRecord</span>
+            <span class="s0">val </span><span class="s1">manufacturerData </span><span class="s2">= </span><span class="s1">scanRecord?</span><span class="s2">.</span><span class="s1">getManufacturerSpecificData</span><span class="s2">(</span><span class="s3">0xFFFF</span><span class="s2">)</span>
+
+            <span class="s1">manufacturerData?</span><span class="s2">.</span><span class="s1">let </span><span class="s2">{</span>
+                <span class="s0">val </span><span class="s1">message </span><span class="s2">= </span><span class="s1">String</span><span class="s2">(</span><span class="s1">it</span><span class="s2">)</span>
+                <span class="s5">//filter for this app</span>
+
+                    <span class="s0">val </span><span class="s1">deviceName </span><span class="s2">= </span><span class="s1">result</span><span class="s2">.</span><span class="s1">device</span><span class="s2">.</span><span class="s1">name ?: </span><span class="s4">&quot;Unknown Device&quot;</span>
+                    <span class="s1">onDeviceNameFound</span><span class="s2">(</span><span class="s1">deviceName</span><span class="s2">)</span>
+
+                    <span class="s1">messageHandler</span><span class="s2">(</span><span class="s1">message</span><span class="s2">)</span>
+
+
+            <span class="s2">}</span>
+        <span class="s2">}</span>
+
+        <span class="s1">override </span><span class="s0">fun </span><span class="s1">onScanFailed</span><span class="s2">(</span><span class="s1">errorCode: Int</span><span class="s2">) {</span>
+            <span class="s1">Log</span><span class="s2">.</span><span class="s1">e</span><span class="s2">(</span><span class="s4">&quot;BLE_RECEIVE&quot;</span><span class="s2">, </span><span class="s4">&quot;Scan failed with error: </span><span class="s0">$</span><span class="s1">errorCode</span><span class="s4">&quot;</span><span class="s2">)</span>
+        <span class="s2">}</span>
+    <span class="s2">}</span>
+
+    <span class="s1">@SuppressLint</span><span class="s2">(</span><span class="s4">&quot;MissingPermission&quot;</span><span class="s2">)</span>
+    <span class="s0">fun </span><span class="s1">startScanning</span><span class="s2">() {</span>
+        <span class="s0">if </span><span class="s2">(</span><span class="s1">scanning</span><span class="s2">) </span><span class="s0">return</span>
+        <span class="s0">val </span><span class="s1">scanner </span><span class="s2">= </span><span class="s1">adapter?</span><span class="s2">.</span><span class="s1">bluetoothLeScanner ?: </span><span class="s0">return</span>
+
+        <span class="s0">val </span><span class="s1">settings </span><span class="s2">= </span><span class="s1">ScanSettings</span><span class="s2">.</span><span class="s1">Builder</span><span class="s2">()</span>
+            <span class="s2">.</span><span class="s1">setScanMode</span><span class="s2">(</span><span class="s1">ScanSettings</span><span class="s2">.</span><span class="s1">SCAN_MODE_LOW_LATENCY</span><span class="s2">)</span>
+            <span class="s2">.</span><span class="s1">build</span><span class="s2">()</span>
+
+        <span class="s5">// Filter for the app</span>
+        <span class="s0">val </span><span class="s1">filter </span><span class="s2">= </span><span class="s1">ScanFilter</span><span class="s2">.</span><span class="s1">Builder</span><span class="s2">()</span>
+            <span class="s2">.</span><span class="s1">setManufacturerData</span><span class="s2">(</span><span class="s3">0xFFFF</span><span class="s2">, </span><span class="s1">byteArrayOf</span><span class="s2">(), </span><span class="s1">byteArrayOf</span><span class="s2">())</span>
+            <span class="s2">.</span><span class="s1">build</span><span class="s2">()</span>
+
+        <span class="s1">scanner</span><span class="s2">.</span><span class="s1">startScan</span><span class="s2">(</span><span class="s1">listOf</span><span class="s2">(</span><span class="s1">filter</span><span class="s2">), </span><span class="s1">settings</span><span class="s2">, </span><span class="s1">scanCallback</span><span class="s2">)</span>
+        <span class="s1">scanning </span><span class="s2">= </span><span class="s0">true</span>
+        <span class="s1">Log</span><span class="s2">.</span><span class="s1">i</span><span class="s2">(</span><span class="s4">&quot;BLE_RECEIVE&quot;</span><span class="s2">, </span><span class="s4">&quot;Started Scanning&quot;</span><span class="s2">)</span>
+    <span class="s2">}</span>
+
+     <span class="s0">fun </span><span class="s1">messageHandler</span><span class="s2">(</span><span class="s1">msg: String</span><span class="s2">) {</span>
+
+        <span class="s0">if </span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">take</span><span class="s2">(</span><span class="s3">4</span><span class="s2">) == </span><span class="s4">&quot;CTRL&quot;</span><span class="s2">) {</span>
+            <span class="s0">if </span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">startsWith</span><span class="s2">(</span><span class="s4">&quot;CTRLHRBT&quot;</span><span class="s2">)) {</span>
+                <span class="s1">Toast</span><span class="s2">.</span><span class="s1">makeText</span><span class="s2">(</span><span class="s1">context</span><span class="s2">, </span><span class="s4">&quot;Heartbeat received&quot;</span><span class="s2">, </span><span class="s1">Toast</span><span class="s2">.</span><span class="s1">LENGTH_SHORT</span><span class="s2">).</span><span class="s1">show</span><span class="s2">()</span>
+                <span class="s1">MainActivity</span><span class="s2">.</span><span class="s1">status</span><span class="s2">.</span><span class="s1">isConnected</span><span class="s2">=</span><span class="s0">true</span>
+                <span class="s1">connected?</span><span class="s2">.</span><span class="s1">cancel</span><span class="s2">()</span>
+                <span class="s1">connected </span><span class="s2">= </span><span class="s1">scope</span><span class="s2">.</span><span class="s1">launch </span><span class="s2">{</span>
+                    <span class="s1">delay</span><span class="s2">(</span><span class="s3">15000</span><span class="s2">)</span>
+                    <span class="s1">MainActivity</span><span class="s2">.</span><span class="s1">status</span><span class="s2">.</span><span class="s1">isConnected</span><span class="s2">=</span><span class="s0">false</span>
+                    <span class="s1">Log</span><span class="s2">.</span><span class="s1">i</span><span class="s2">(</span><span class="s4">&quot;BLE_RECV&quot;</span><span class="s2">, </span><span class="s4">&quot;Disconnected&quot;</span><span class="s2">)</span>
+                <span class="s2">}</span>
+                <span class="s0">return</span>
+            <span class="s2">}</span>
+            <span class="s0">else if </span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">startsWith</span><span class="s2">(</span><span class="s4">&quot;CTRLDROP&quot;</span><span class="s2">)) {</span>
+                <span class="s5">//send message parts contained in message</span>
+                <span class="s1">Log</span><span class="s2">.</span><span class="s1">i</span><span class="s2">(</span><span class="s4">&quot;BLE_RECV&quot;</span><span class="s2">, </span><span class="s4">&quot;Dropped packets&quot;</span><span class="s2">)</span>
+                <span class="s5">//sendDropped(list of dropped packets)</span>
+
+
+
+
+            <span class="s2">}</span>
+
+        <span class="s2">}</span>
+
+
+
+
+
+            <span class="s0">if  </span><span class="s2">(!</span><span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">contains</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">take</span><span class="s2">(</span><span class="s3">2</span><span class="s2">)) || </span><span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">isEmpty</span><span class="s2">()) {</span>
+                <span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">add</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">take</span><span class="s2">(</span><span class="s3">2</span><span class="s2">)) </span><span class="s5">//new logic to allow multi packet messages</span>
+                <span class="s0">try </span><span class="s2">{</span>
+                    <span class="s1">expectedPackets </span><span class="s2">= (</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">subSequence</span><span class="s2">(</span><span class="s3">2</span><span class="s2">, </span><span class="s3">4</span><span class="s2">)).</span><span class="s1">toString</span><span class="s2">().</span><span class="s1">toInt</span><span class="s2">()</span>
+                    <span class="s0">if</span><span class="s2">(</span><span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">size</span><span class="s2">==</span><span class="s3">1</span><span class="s2">){</span>
+                        <span class="s1">timer</span><span class="s2">=</span><span class="s1">scope</span><span class="s2">.</span><span class="s1">launch </span><span class="s2">{</span>
+                            <span class="s1">StartTimer</span><span class="s2">(</span><span class="s1">expectedPackets</span><span class="s2">,</span><span class="s1">alreadyReceivedPackets</span><span class="s2">)</span><span class="s5">//wait for message to end and count packets</span>
+                        <span class="s2">}</span>
+                    <span class="s2">}</span>
+
+                <span class="s2">} </span><span class="s1">catch </span><span class="s2">(</span><span class="s1">e: Exception</span><span class="s2">) {</span>
+                    <span class="s1">Log</span><span class="s2">.</span><span class="s1">e</span><span class="s2">(</span><span class="s4">&quot;BLE_RECV&quot;</span><span class="s2">, </span><span class="s4">&quot;Error parsing packet: </span><span class="s0">$</span><span class="s1">msg</span><span class="s4">&quot;</span><span class="s2">)</span>
+                    <span class="s0">return</span>
+                <span class="s2">}</span>
+                <span class="s1">Log</span><span class="s2">.</span><span class="s1">i</span><span class="s2">(</span><span class="s4">&quot;BLE_RECV&quot;</span><span class="s2">, </span><span class="s4">&quot;Expected packets: </span><span class="s0">$</span><span class="s1">expectedPackets</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">add</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">)</span>
+                <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">sortBy </span><span class="s2">{ </span><span class="s1">it</span><span class="s2">.</span><span class="s1">take</span><span class="s2">(</span><span class="s3">2</span><span class="s2">) }</span>
+
+                <span class="s1">Log</span><span class="s2">.</span><span class="s1">i</span><span class="s2">(</span><span class="s4">&quot;BLE_RECV&quot;</span><span class="s2">, </span><span class="s4">&quot;Message received: </span><span class="s0">$</span><span class="s1">alreadyReceivedPackets</span><span class="s4">&quot;</span><span class="s2">)</span>
+            <span class="s2">}</span>
+        <span class="s0">else </span><span class="s2">{</span>
+            <span class="s0">if </span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">takeLast</span><span class="s2">(</span><span class="s3">2</span><span class="s2">) != </span><span class="s1">messageParts</span><span class="s2">.</span><span class="s1">last</span><span class="s2">().</span><span class="s1">takeLast</span><span class="s2">(</span><span class="s3">2</span><span class="s2">)</span>
+            <span class="s2">) {</span>
+
+
+                <span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">clear</span><span class="s2">()</span>
+                <span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">add</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">take</span><span class="s2">(</span><span class="s3">2</span><span class="s2">))</span>
+                <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">clear</span><span class="s2">()</span>
+                <span class="s1">expectedPackets </span><span class="s2">= </span><span class="s1">msg</span><span class="s2">.</span><span class="s1">subSequence</span><span class="s2">(</span><span class="s3">2</span><span class="s2">,</span><span class="s3">4</span><span class="s2">).</span><span class="s1">toString</span><span class="s2">().</span><span class="s1">toInt</span><span class="s2">()</span>
+                <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">add</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">)</span>
+                <span class="s1">timer?</span><span class="s2">.</span><span class="s1">cancel</span><span class="s2">()</span>
+                <span class="s1">timer</span><span class="s2">=</span><span class="s1">scope</span><span class="s2">.</span><span class="s1">launch </span><span class="s2">{</span>
+                    <span class="s1">StartTimer</span><span class="s2">(</span><span class="s1">expectedPackets</span><span class="s2">,</span><span class="s1">alreadyReceivedPackets</span><span class="s2">)</span>
+                <span class="s2">}</span>
+
+
+
+            <span class="s2">}</span>
+        <span class="s2">}</span>
+
+        <span class="s0">if </span><span class="s2">(</span><span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">size </span><span class="s2">== </span><span class="s1">expectedPackets</span><span class="s2">) {</span>
+                <span class="s1">receivedMessage </span><span class="s2">=</span>
+                    <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">joinToString</span><span class="s2">(</span><span class="s1">separator </span><span class="s2">= </span><span class="s4">&quot;&quot;</span><span class="s2">) { </span><span class="s1">it</span><span class="s2">.</span><span class="s1">drop</span><span class="s2">(</span><span class="s3">4</span><span class="s2">).</span><span class="s1">trim</span><span class="s2">().</span><span class="s1">dropLast</span><span class="s2">(</span><span class="s3">2</span><span class="s2">) }</span>
+                <span class="s1">onMessageReceived</span><span class="s2">(</span><span class="s1">receivedMessage</span><span class="s2">)</span>
+            <span class="s1">dropped</span><span class="s2">(</span><span class="s1">alreadyReceivedPackets</span><span class="s2">,</span><span class="s1">expectedPackets</span><span class="s2">)</span>
+            <span class="s1">timer?</span><span class="s2">.</span><span class="s1">cancel</span><span class="s2">()</span>
+                <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">clear</span><span class="s2">()</span>
+                <span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">clear</span><span class="s2">()</span>
+            <span class="s2">} </span><span class="s0">else if </span><span class="s2">(</span><span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">size </span><span class="s2">&gt; </span><span class="s1">expectedPackets</span><span class="s2">) {</span>
+                <span class="s1">onMessageReceived</span><span class="s2">(</span><span class="s4">&quot;Error&quot;</span><span class="s2">)</span>
+                <span class="s1">messageParts</span><span class="s2">.</span><span class="s1">clear</span><span class="s2">()</span>
+                <span class="s1">alreadyReceivedPackets</span><span class="s2">.</span><span class="s1">clear</span><span class="s2">()</span>
+            <span class="s2">}</span>
+
+    <span class="s2">}</span>
+
+    <span class="s1">@SuppressLint</span><span class="s2">(</span><span class="s4">&quot;MissingPermission&quot;</span><span class="s2">)</span>
+    <span class="s0">fun </span><span class="s1">stopScanning</span><span class="s2">() {</span>
+        <span class="s0">if </span><span class="s2">(!</span><span class="s1">scanning</span><span class="s2">) </span><span class="s0">return</span>
+        <span class="s0">val </span><span class="s1">scanner </span><span class="s2">= </span><span class="s1">adapter?</span><span class="s2">.</span><span class="s1">bluetoothLeScanner ?: </span><span class="s0">return</span>
+        <span class="s1">scanner</span><span class="s2">.</span><span class="s1">stopScan</span><span class="s2">(</span><span class="s1">scanCallback</span><span class="s2">)</span>
+        <span class="s1">scanning </span><span class="s2">= </span><span class="s0">false</span>
+        <span class="s1">Log</span><span class="s2">.</span><span class="s1">i</span><span class="s2">(</span><span class="s4">&quot;BLE_RECEIVE&quot;</span><span class="s2">, </span><span class="s4">&quot;Stopped Scanning&quot;</span><span class="s2">)</span>
+    <span class="s2">}</span>
+<span class="s2">}</span>
+
+
+
+</pre>
+</body>
+</html>
