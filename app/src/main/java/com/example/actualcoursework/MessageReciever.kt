@@ -90,6 +90,7 @@ class MessageReceiver2(
                 connected = scope.launch {
                     delay(15000)
                     MainActivity.status.isConnected=false
+                    Log.i("BLE_RECV", "Disconnected")
                 }
                 return
             }
