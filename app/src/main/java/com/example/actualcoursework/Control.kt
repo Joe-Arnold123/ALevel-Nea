@@ -6,7 +6,7 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.le.*
 import android.content.Context
 import android.util.Log
-import androidx.core.content.ContextCompat.startActivity
+
 import kotlinx.coroutines.delay
 
 @SuppressLint("MissingPermission")
@@ -22,6 +22,8 @@ import kotlinx.coroutines.delay
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter = bluetoothManager.adapter
         val advertiser = adapter?.bluetoothLeAdvertiser
+        sendControlMessage(context,operation)
+
     }
 
 
@@ -48,6 +50,10 @@ import kotlinx.coroutines.delay
                 Log.i("BLE_SEND", "Control signal started")
             } else {
                 Log.e("BLE_SEND", "Failed to start control advertising: $status")
+                val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                val adapter = bluetoothManager.adapter
+                val advertiser = adapter?.bluetoothLeAdvertiser
+
 
             }
         }
@@ -62,13 +68,14 @@ import kotlinx.coroutines.delay
         1,
         callback
     )
+    advertiser?.stopAdvertisingSet(callback)
 
 }
-suspend fun StartTimer(expectedPackets:Int,packetlist: MutableList<String>){//calls dropped packet function after 400ms
+suspend fun StartTimer(context:Context,expectedPackets:Int,packetlist: MutableList<String>){//calls dropped packet function after 400ms
     // multiplied by the number of packets
     delay(400L*expectedPackets.toLong())
     if(packetlist.size<expectedPackets) {
-        dropped(packetlist,expectedPackets)
+        dropped(context,packetlist,expectedPackets)
     }
     else{
         return
@@ -76,7 +83,7 @@ suspend fun StartTimer(expectedPackets:Int,packetlist: MutableList<String>){//ca
 
 }
 
-fun dropped(alreadyReceivedPackets: MutableList<String>,expectedPackets: Int){
+fun dropped(context: Context,alreadyReceivedPackets: MutableList<String>,expectedPackets: Int){
 
     val receivedIndices = alreadyReceivedPackets.mapNotNull { packet ->
         packet.take(2).toIntOrNull()
@@ -85,7 +92,7 @@ fun dropped(alreadyReceivedPackets: MutableList<String>,expectedPackets: Int){
     val formattedMissing = missingIndices.map { it.toString().padStart(2, '0') }
     Log.i("BLE_RECV", "Missing Packets: $formattedMissing")
     Log.i("BLE_RECV", "Total missing count: ${missingIndices.size}")
-    //sendControlMessage(context = this,operation = "DROP",formattedMissing.toMutableList())
+    sendControlMessage(context = context, operation = "DROP",formattedMissing.toMutableList())
 
 }
 

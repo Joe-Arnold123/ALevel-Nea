@@ -9,7 +9,6 @@ import android.bluetooth.le.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
@@ -35,22 +33,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.work.PeriodicWorkRequest
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.WorkRequest
-import androidx.work.Worker
-import androidx.work.WorkerParameters
-import androidx.work.impl.WorkManagerImpl
 import com.example.actualcoursework.ui.theme.ActualCourseworkTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -66,8 +57,10 @@ class MainActivity : ComponentActivity() {
     private var previousPackets = mutableListOf<String>()
 
     object status {
-        var isConnected = false
+        var isConnected = mutableStateOf(false)
     }
+    private val serviceScope = CoroutineScope(Dispatchers.Default+ SupervisorJob())
+    private var messageJob: Job? = null
 
 
     private var heartbeatJob: Job? = null
@@ -127,7 +120,7 @@ class MainActivity : ComponentActivity() {
 
                         }
                         Canvas(modifier = Modifier.fillMaxSize()) {
-                            if(status.isConnected==false){
+                            if(status.isConnected==mutableStateOf(false)){
                             drawCircle(//add connected device num asw
 
                                 color=Color.Red,
@@ -255,9 +248,10 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
 
 
         fun sendMessage(message: String) {
-        lifecycleScope.launch {
 
-            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        messageJob= serviceScope.launch {
+
+            val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
             val adapter = bluetoothManager.adapter
             val advertiser = adapter?.bluetoothLeAdvertiser
             if (advertiser == null) {
@@ -268,17 +262,12 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
 
             if(message.length>4){
                 packets = message.chunked(10).toMutableList()
-            }
-            else{
+            } else{
                 packets.add(message)
             }
 
 
             val toBeSent = packets.size
-
-
-
-
 
 
             val parameters = AdvertisingSetParameters.Builder()
@@ -301,7 +290,6 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
                 .build()
 
 
-
             //advertiser.startAdvertisingSet(
             //parameters, data, scanResponse, null, null, 100
             //,3,activeAdvertisingCallback)
@@ -310,7 +298,7 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
             var sendingTotal = ""
             // Stop anything else sending first
 
-            do {
+            packets.forEachIndexed { index, content ->
                 val localAdvertisingCallback = object : AdvertisingSetCallback() {
                     override fun onAdvertisingSetStarted(
                         advertisingSet: AdvertisingSet?,
@@ -327,7 +315,7 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
                                 ).show()
                             }
                         } else {
-                            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                            val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
                             val adapter = bluetoothManager.adapter
 
 
@@ -340,10 +328,9 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
                 }
 
 
-                 if (index < 10) {
+                if (index < 10) {
                     packetnum = "0$index"
-                }
-                else {
+                } else {
                     packetnum = index.toString()
                 }
                 if (toBeSent < 10) {
@@ -365,14 +352,12 @@ val serviceIntent = Intent(this, BackgroundTasks::class.java)
                 advertiser.startAdvertisingSet(
                     parameters, data, scanResponse, null, null,  localAdvertisingCallback
                 )
-                index++
-                delay(100)
+
+                delay(200)
                 advertiser.stopAdvertisingSet(localAdvertisingCallback)
                 delay(60)
-            } while (index<toBeSent)
+            }
             previousPackets=packets
-
-
 
 
         }

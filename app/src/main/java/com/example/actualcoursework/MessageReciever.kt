@@ -11,6 +11,7 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -85,11 +86,11 @@ class MessageReceiver2(
         if (msg.take(4) == "CTRL") {
             if (msg.startsWith("CTRLHRBT")) {
                 Toast.makeText(context, "Heartbeat received", Toast.LENGTH_SHORT).show()
-                MainActivity.status.isConnected=true
+                MainActivity.status.isConnected=mutableStateOf(true)
                 connected?.cancel()
                 connected = scope.launch {
-                    delay(15000)
-                    MainActivity.status.isConnected=false
+                    delay(30000)
+                    MainActivity.status.isConnected=mutableStateOf(false)
                     Log.i("BLE_RECV", "Disconnected")
                 }
                 return
@@ -97,7 +98,7 @@ class MessageReceiver2(
             else if (msg.startsWith("CTRLDROP")) {
                 //send message parts contained in message
                 Log.i("BLE_RECV", "Dropped packets")
-                //sendDropped(list of dropped packets)
+                MainActivity.sendMessage()
 
 
 
@@ -116,7 +117,7 @@ class MessageReceiver2(
                     expectedPackets = (msg.subSequence(2, 4)).toString().toInt()
                     if(alreadyReceivedPackets.size==1){
                         timer=scope.launch {
-                            StartTimer(expectedPackets,alreadyReceivedPackets)//wait for message to end and count packets
+                            StartTimer(context,expectedPackets,alreadyReceivedPackets)//wait for message to end and count packets
                         }
                     }
 
@@ -142,7 +143,7 @@ class MessageReceiver2(
                 messageParts.add(msg)
                 timer?.cancel()
                 timer=scope.launch {
-                    StartTimer(expectedPackets,alreadyReceivedPackets)
+                    StartTimer(context,expectedPackets,alreadyReceivedPackets)
                 }
 
 
@@ -154,7 +155,7 @@ class MessageReceiver2(
                 receivedMessage =
                     messageParts.joinToString(separator = "") { it.drop(4).trim().dropLast(2) }
                 onMessageReceived(receivedMessage)
-            dropped(alreadyReceivedPackets,expectedPackets)
+
             timer?.cancel()
                 messageParts.clear()
                 alreadyReceivedPackets.clear()
