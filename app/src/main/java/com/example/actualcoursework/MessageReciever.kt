@@ -27,7 +27,10 @@ class MessageReceiver2(
     private val onDeviceNameFound: (String) -> Unit,
     private val onSendMessageRequest: (String) -> Unit,
     private val previousmessage: MutableList<String>
+
 ) {
+    private val messageCache = MessageCache()
+
     private val messageParts = mutableSetOf<String>()
     private val alreadyReceivedPackets = mutableListOf<String>()
     private var expectedPackets: Int = 0
@@ -85,6 +88,7 @@ class MessageReceiver2(
         Log.i("BLE_RECEIVE", "Started Scanning")
     }
      fun messageHandler(msg: String) {
+
 
         if (msg.take(4) == "CTRL") {
             if (msg.startsWith("CTRLHRBT")) {
@@ -157,8 +161,10 @@ class MessageReceiver2(
 
         if (alreadyReceivedPackets.size == expectedPackets) {
                 receivedMessage =
-                    messageParts.joinToString(separator = "") { it.drop(4).trim().dropLast(2) }
+                    messageParts.joinToString(separator = "") { it.drop(4).trim().dropLast(3) }
                 onMessageReceived(receivedMessage)
+            addMessageToCache(messageParts.last().takeLast(2),messageCache.cache)
+
 
             timer?.cancel()
                 messageParts.clear()

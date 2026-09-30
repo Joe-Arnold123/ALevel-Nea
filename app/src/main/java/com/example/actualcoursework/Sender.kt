@@ -20,7 +20,7 @@ class Sender(
 ) {
 
     @SuppressLint("MissingPermission")
-    fun send(message: String, isMissing: Boolean = false) {
+    fun send(message: String, isMissing: Boolean = false,timeToLive:Int=7) {
         serviceScope.launch {
             val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val adapter = bluetoothManager.adapter
@@ -76,7 +76,7 @@ class Sender(
                 val data = AdvertiseData.Builder()
                     .addManufacturerData(
                         0xFFFF,
-                        (packetnum + sendingTotal + packets[index] + hash).toByteArray()
+                        (packetnum + sendingTotal + packets[index] +timeToLive+ hash).toByteArray()
                     )
                     .setIncludeDeviceName(false)
                     .build()
