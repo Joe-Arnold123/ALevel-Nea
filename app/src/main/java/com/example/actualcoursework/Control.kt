@@ -22,7 +22,7 @@ import kotlinx.coroutines.delay
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter = bluetoothManager.adapter
         val advertiser = adapter?.bluetoothLeAdvertiser
-        sendControlMessage(context,operation)
+        sendControlMessage(context,operation,MissingpacketsToBeSent)
 
     }
 
@@ -47,7 +47,7 @@ import kotlinx.coroutines.delay
     val callback = object : AdvertisingSetCallback() {
         override fun onAdvertisingSetStarted(advertisingSet: AdvertisingSet?, txPower: Int, status: Int) {
             if (status == ADVERTISE_SUCCESS) {
-                Log.i("BLE_SEND", "Control signal started")
+                Log.i("BLE_SEND", "sent$operation with packets$MissingpacketsToBeSent")
             } else {
                 Log.e("BLE_SEND", "Failed to start control advertising: $status")
                 val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager

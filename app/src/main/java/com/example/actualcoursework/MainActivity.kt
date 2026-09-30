@@ -10,7 +10,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,14 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import com.example.actualcoursework.ui.theme.ActualCourseworkTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -115,7 +111,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.width(300.dp).height(300.dp)
 
                         )
-                        Button(onClick = { sendMessage(messagestate.text.toString()) }) {
+                        Button(onClick = { sender.send(messagestate.text.toString(),false) }) {
                             Text("Send message ")
 
                         }
@@ -146,6 +142,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    val sender=Sender(this,serviceScope,onRestartRequired = {startAppLogic()},onPacketsUpdated = {packets ->previousPackets=packets.toMutableList()})
 
 
 
@@ -216,7 +213,9 @@ class MainActivity : ComponentActivity() {
             receiver = MessageReceiver2(
                 context = this,
                 onMessageReceived = { msg -> receivedMessage = msg },
-                onDeviceNameFound = { name -> sentDeviceName = name }
+                onDeviceNameFound = { name -> sentDeviceName = name },
+                onSendMessageRequest = { msg -> sender.send(msg) },
+                previousmessage = previousPackets
             )
         }
 
@@ -227,146 +226,7 @@ class MainActivity : ComponentActivity() {
 
 val serviceIntent = Intent(this, BackgroundTasks::class.java)
         ContextCompat.startForegroundService(this, serviceIntent)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     }
-
-    @SuppressLint("MissingPermission")
-
-
-        fun sendMessage(message: String) {
-
-        messageJob= serviceScope.launch {
-
-            val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
-            val adapter = bluetoothManager.adapter
-            val advertiser = adapter?.bluetoothLeAdvertiser
-            if (advertiser == null) {
-                Log.e("BLE_SEND", "Advertiser not available")
-                return@launch
-            }
-            var packets = mutableListOf<String>()
-
-            if(message.length>4){
-                packets = message.chunked(10).toMutableList()
-            } else{
-                packets.add(message)
-            }
-
-
-            val toBeSent = packets.size
-
-
-            val parameters = AdvertisingSetParameters.Builder()
-                .setLegacyMode(true) // Compatible with all devices
-                .setConnectable(false) // Quicker Broadcast
-                .setInterval(AdvertisingSetParameters.INTERVAL_LOW) // Fast broadcast
-                .setTxPowerLevel(AdvertisingSetParameters.TX_POWER_MEDIUM)
-                .setScannable(true)
-                .build()
-
-
-            //val data = AdvertiseData.Builder()
-            //.addManufacturerData(0xFFFF, message.toByteArray())
-            //.setIncludeDeviceName(false)
-            //.build()
-
-            // makes phone see the data sometimes weird buggy workaround
-            val scanResponse = AdvertiseData.Builder()
-                .setIncludeDeviceName(true)
-                .build()
-
-
-            //advertiser.startAdvertisingSet(
-            //parameters, data, scanResponse, null, null, 100
-            //,3,activeAdvertisingCallback)
-            var index = 0
-            var packetnum = ""
-            var sendingTotal = ""
-            // Stop anything else sending first
-
-            packets.forEachIndexed { index, content ->
-                val localAdvertisingCallback = object : AdvertisingSetCallback() {
-                    override fun onAdvertisingSetStarted(
-                        advertisingSet: AdvertisingSet?,
-                        txPower: Int,
-                        status: Int
-                    ) {
-                        if (status == ADVERTISE_SUCCESS) {
-                            Log.i("BLE_SEND", "Broadcasting message: $message")
-                            runOnUiThread {
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    "Sending...",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        } else {
-                            val bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
-                            val adapter = bluetoothManager.adapter
-
-
-                            Log.e("BLE_SEND", "Failed to start advertising: $status")
-
-
-                            startAppLogic()
-                        }
-                    }
-                }
-
-
-                if (index < 10) {
-                    packetnum = "0$index"
-                } else {
-                    packetnum = index.toString()
-                }
-                if (toBeSent < 10) {
-                    sendingTotal = "0$toBeSent"
-                } else {
-                    sendingTotal = toBeSent.toString()
-                }
-                val hash=message.hashCode().toString().subSequence(0,2)
-
-
-                val data = AdvertiseData.Builder()
-                    .addManufacturerData(
-                        0xFFFF,
-                        (packetnum + sendingTotal + packets[index]+hash).toByteArray()
-                    )
-                    .setIncludeDeviceName(false)
-                    .build()
-
-                advertiser.startAdvertisingSet(
-                    parameters, data, scanResponse, null, null,  localAdvertisingCallback
-                )
-
-                delay(200)
-                advertiser.stopAdvertisingSet(localAdvertisingCallback)
-                delay(60)
-            }
-            previousPackets=packets
-
-
-        }
-    }
-
-
-
-
-
 
     @SuppressLint("MissingPermission")
     override fun onStop() {

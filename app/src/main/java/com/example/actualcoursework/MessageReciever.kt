@@ -12,6 +12,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.app.ComponentActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,13 +20,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
+import com.example.actualcoursework.MainActivity
 class MessageReceiver2(
     private val context: Context,
     private val onMessageReceived: (String) -> Unit,
-    private val onDeviceNameFound: (String) -> Unit
+    private val onDeviceNameFound: (String) -> Unit,
+    private val onSendMessageRequest: (String) -> Unit,
+    private val previousmessage: MutableList<String>
 ) {
-    private val messageParts = mutableListOf<String>()
+    private val messageParts = mutableSetOf<String>()
     private val alreadyReceivedPackets = mutableListOf<String>()
     private var expectedPackets: Int = 0
     private var receivedMessage: String = ""
@@ -37,6 +40,7 @@ class MessageReceiver2(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private var connected: Job? = null
+
 
     private val scanCallback = object : ScanCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -80,17 +84,16 @@ class MessageReceiver2(
         scanning = true
         Log.i("BLE_RECEIVE", "Started Scanning")
     }
-
      fun messageHandler(msg: String) {
 
         if (msg.take(4) == "CTRL") {
             if (msg.startsWith("CTRLHRBT")) {
                 Toast.makeText(context, "Heartbeat received", Toast.LENGTH_SHORT).show()
-                MainActivity.status.isConnected=mutableStateOf(true)
+                MainActivity.status.isConnected.value=true
                 connected?.cancel()
                 connected = scope.launch {
                     delay(30000)
-                    MainActivity.status.isConnected=mutableStateOf(false)
+                    MainActivity.status.isConnected.value=false
                     Log.i("BLE_RECV", "Disconnected")
                 }
                 return
@@ -98,7 +101,8 @@ class MessageReceiver2(
             else if (msg.startsWith("CTRLDROP")) {
                 //send message parts contained in message
                 Log.i("BLE_RECV", "Dropped packets")
-                MainActivity.sendMessage()
+                onSendMessageRequest(previousmessage.joinToString(""))
+                Log.i("BLE_RECV", "trying to resend message ")
 
 
 
@@ -127,7 +131,7 @@ class MessageReceiver2(
                 }
                 Log.i("BLE_RECV", "Expected packets: $expectedPackets")
                 messageParts.add(msg)
-                messageParts.sortBy { it.take(2) }
+                messageParts.sortedBy{ it.take(2) }
 
                 Log.i("BLE_RECV", "Message received: $alreadyReceivedPackets")
             }
