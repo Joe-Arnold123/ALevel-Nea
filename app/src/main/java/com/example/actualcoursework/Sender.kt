@@ -3,8 +3,10 @@ package com.example.actualcoursework
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothManager
-import android.bluetooth.le.*
-import android.bluetooth.le.AdvertisingSetCallback.ADVERTISE_SUCCESS
+import android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertisingSet
+import android.bluetooth.le.AdvertisingSetCallback
+import android.bluetooth.le.AdvertisingSetParameters
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
@@ -16,7 +18,7 @@ class Sender(
     private val context: Context,
     private val serviceScope: CoroutineScope,
     private val onRestartRequired: () -> Unit,
-    private val onPacketsUpdated: (List<String>) -> Unit
+    private val onPacketsUpdated: (String) -> Unit
 ) {
 
     @SuppressLint("MissingPermission")
@@ -65,6 +67,7 @@ class Sender(
                         } else {
                             Log.e("BLE_SEND", "Failed to start advertising: $status")
                             onRestartRequired()
+                            send(message, isMissing,timeToLive)
                         }
                     }
                 }
@@ -89,7 +92,7 @@ class Sender(
                 advertiser.stopAdvertisingSet(localAdvertisingCallback)
                 delay(60)
             }
-            onPacketsUpdated(packets)
+            onPacketsUpdated(message)
         }
     }
 }

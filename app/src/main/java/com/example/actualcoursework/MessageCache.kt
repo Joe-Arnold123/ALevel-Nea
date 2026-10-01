@@ -1,7 +1,5 @@
 package com.example.actualcoursework
 
-import java.util.function.ToIntFunction
-
 class MessageCache {
       var cache = mutableSetOf<String>()
 }
@@ -26,7 +24,6 @@ fun addMessageToCache(message: String,cache: MutableSet<String>): Boolean {
     else return false
 }
 fun removeMessageFromCache(message: String,cache: MutableSet<String>) {
-    ///
 
 }
 fun getId(message: String): String{

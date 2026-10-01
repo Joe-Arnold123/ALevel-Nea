@@ -4,29 +4,26 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.mutableStateOf
-import androidx.core.app.ComponentActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.example.actualcoursework.MainActivity
+
 class MessageReceiver2(
     private val context: Context,
     private val onMessageReceived: (String) -> Unit,
     private val onDeviceNameFound: (String) -> Unit,
     private val onSendMessageRequest: (String) -> Unit,
-    private val previousmessage: MutableList<String>
+    private val previousmessage: String
 
 ) {
     private val messageCache = MessageCache()
@@ -88,6 +85,10 @@ class MessageReceiver2(
         Log.i("BLE_RECEIVE", "Started Scanning")
     }
      fun messageHandler(msg: String) {
+         if(dupplicate(msg, cache = messageCache.cache )){
+             Log.i("BLE_RECV", "Duplicate message received")
+             return
+         }
 
 
         if (msg.take(4) == "CTRL") {
@@ -105,7 +106,7 @@ class MessageReceiver2(
             else if (msg.startsWith("CTRLDROP")) {
                 //send message parts contained in message
                 Log.i("BLE_RECV", "Dropped packets")
-                onSendMessageRequest(previousmessage.joinToString(""))
+                onSendMessageRequest(previousmessage)
                 Log.i("BLE_RECV", "trying to resend message ")
 
 

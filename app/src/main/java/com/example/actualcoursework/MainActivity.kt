@@ -5,7 +5,8 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
-import android.bluetooth.le.*
+import android.bluetooth.le.AdvertisingSetCallback
+import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -27,7 +28,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,7 +53,7 @@ class MainActivity : ComponentActivity() {
     private var activeAdvertisingCallback: AdvertisingSetCallback? = null
     private val messagestate = TextFieldState("Hello")
     private val messageParts = mutableListOf<String>()
-    private var previousPackets = mutableListOf<String>()
+    private var previousMessage: String =""
 
     object status {
         var isConnected = mutableStateOf(false)
@@ -142,7 +145,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    val sender=Sender(this,serviceScope,onRestartRequired = {startAppLogic()},onPacketsUpdated = {packets ->previousPackets=packets.toMutableList()})
+    val sender=Sender(this,serviceScope,onRestartRequired = {startAppLogic()},onPacketsUpdated = {packets ->previousMessage=packets})
 
 
 
@@ -215,7 +218,7 @@ class MainActivity : ComponentActivity() {
                 onMessageReceived = { msg -> receivedMessage = msg },
                 onDeviceNameFound = { name -> sentDeviceName = name },
                 onSendMessageRequest = { msg -> sender.send(msg) },
-                previousmessage = previousPackets
+                previousmessage = previousMessage
             )
         }
 

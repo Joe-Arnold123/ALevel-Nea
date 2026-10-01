@@ -1,6 +1,5 @@
 package com.example.actualcoursework
 
-import android.Manifest.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -8,7 +7,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
-import android.widget.RemoteViews
+
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
