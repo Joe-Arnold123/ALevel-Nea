@@ -46,7 +46,7 @@ class MessageReceiver2(
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val scanRecord = result.scanRecord
-            val manufacturerData = scanRecord?.getManufacturerSpecificData(0xFFFF) //need to request an id
+            val manufacturerData = scanRecord?.getManufacturerSpecificData(0xFFFF) //need to request an id from bleutooth sig
 
             manufacturerData?.let {
                 val message = String(it)
