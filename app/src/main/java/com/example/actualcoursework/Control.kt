@@ -3,10 +3,12 @@ package com.example.actualcoursework
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
-import android.bluetooth.le.*
+import android.bluetooth.le.AdvertiseData
+import android.bluetooth.le.AdvertisingSet
+import android.bluetooth.le.AdvertisingSetCallback
+import android.bluetooth.le.AdvertisingSetParameters
 import android.content.Context
 import android.util.Log
-
 import kotlinx.coroutines.delay
 
 @SuppressLint("MissingPermission")
@@ -17,7 +19,7 @@ import kotlinx.coroutines.delay
     val advertiser = adapter?.bluetoothLeAdvertiser
     val packet:String="CTRL$operation"
 
-    if (advertiser == null) {//still need to fix why it hides from me
+    if (advertiser == null) {//still need to fix why it hides
         Log.e("BLE_SEND", "Advertiser not available")
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val adapter = bluetoothManager.adapter
