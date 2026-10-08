@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
     private var receiver: MessageReceiver2? = null
     private var sentDeviceName by mutableStateOf("")
 
-    // Hold references to prevent garbage collection
+
     private var bluetoothLeAdvertiser: BluetoothLeAdvertiser? = null
     private var activeAdvertisingCallback: AdvertisingSetCallback? = null
     private val messagestate = TextFieldState("Hello")
