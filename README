@@ -1,7 +1,8 @@
-# What this project does 
-This project creates a mesh network of android phones to send messages to each-other on 
+# ALevel-NEA
+## What this project does 
+This project creates a mesh network of Android phones to send messages to each-other on 
 
-# How?
+## How?
 
 It uses a custom packet structure which is sent with standard bluetooth advertising packets meaning
-the devices never need to connect to each-other  to communicate 
+the devices never need to connect to each-other to communicate 
