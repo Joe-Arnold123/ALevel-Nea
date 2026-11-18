@@ -18,7 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class MessageReceiver2(
+class MessageReceiver(
     private val context: Context,
     private val onMessageReceived: (String) -> Unit,
     private val onDeviceNameFound: (String) -> Unit,
@@ -85,7 +85,7 @@ class MessageReceiver2(
         Log.i("BLE_RECEIVE", "Started Scanning")
     }
      fun messageHandler(msg: String) {
-         if(dupplicate(msg, cache = messageCache.cache )){
+         if(messageCache.dupplicate(msg, cache = messageCache.cache )){
              Log.i("BLE_RECV", "Duplicate message received")
              return
          }
@@ -164,7 +164,7 @@ class MessageReceiver2(
                 receivedMessage =
                     messageParts.joinToString(separator = "") { it.drop(4).trim().dropLast(3) }
                 onMessageReceived(receivedMessage)
-            addMessageToCache(messageParts.last().takeLast(2),messageCache.cache)
+            messageCache.addMessageToCache(messageParts.last().takeLast(2),messageCache.cache)
 
 
             timer?.cancel()
