@@ -73,19 +73,35 @@ abstract class BaseSender(context: Context) {
 
     }
 
-    protected fun packetBuilder(message: String,ttl: Int = 7 ) {//overrides in child class based on packet type
+    protected fun encrypt(message:String): String{
+
+
+        return message
+    }
+
+    protected fun packetBuilder(message: String,ttl: Int = 7 ):MutableList<AdvertiseData> {//overrides in child class based on packet type
+       val preppedPackets:MutableList<AdvertiseData> = mutableListOf()
+        encrypt(message)
         val packetsToAdd = if (message.length > 10) {
             message.chunked(10).toMutableList()
         } else {
             mutableListOf(message)
         }
         val totalPackets=packetsToAdd.size-1
-        val messageId=(message+ LocalDate.now()).hashCode().toString().take(2)//subject to change
+        val messageId=(message+ LocalDate.now()).hashCode().toString().take(4)//subject to change
+
         packetsToAdd.forEachIndexed { index, string ->
             val currentIndex = if (index > 10) { "$index" } else { "0$index" }
-
-
+            preppedPackets.add(AdvertiseData.Builder()
+                .addManufacturerData(
+                    0xFFFF,
+                    (currentIndex + totalPackets  + string +ttl + messageId).toByteArray()
+                )
+                .setIncludeDeviceName(false)
+                .build())
         }
+        return preppedPackets
+
     }
 
 
