@@ -8,8 +8,11 @@ import android.bluetooth.le.AdvertisingSet
 import android.bluetooth.le.AdvertisingSetCallback
 import android.bluetooth.le.AdvertisingSetParameters
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import androidx.core.app.ActivityCompat
+import java.time.LocalDate
 import java.util.Queue
 
 abstract class BaseSender(context: Context) {
@@ -70,14 +73,25 @@ abstract class BaseSender(context: Context) {
 
     }
 
-    protected fun packetBuilder(message: String) {//overrides in child class based on packet type
+    protected fun packetBuilder(message: String,ttl: Int = 7 ) {//overrides in child class based on packet type
+        val packetsToAdd = if (message.length > 10) {
+            message.chunked(10).toMutableList()
+        } else {
+            mutableListOf(message)
+        }
+        val totalPackets=packetsToAdd.size-1
+        val messageId=(message+ LocalDate.now()).hashCode().toString().take(2)//subject to change
+        packetsToAdd.forEachIndexed { index, string ->
+            val currentIndex = if (index > 10) { "$index" } else { "0$index" }
 
 
+        }
     }
 
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_ADVERTISE)
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.BLUETOOTH_ADVERTISE])
     protected fun processSendQueue(
+        context: Context,
         sendQueue: Queue<AdvertiseData>,
         scanResponse: AdvertiseData,
         advertisingSetCallback: AdvertisingSetCallback,
@@ -88,14 +102,26 @@ abstract class BaseSender(context: Context) {
             val packet: AdvertiseData = sendQueue.remove()
 
 
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.BLUETOOTH_ADVERTISE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                throw Exception("Permission not granted")
+
+            }
             advertise(packet, scanResponse, advertisingSetCallback, parameters)
 
 
+
+
+        }
+        catch (e : Exception){
             Log.e("Advertise Error", "Error $e")
-
-
+        }
+        }  //removes a packet from the send queue and calls advertise
     }
-}
+
 
 
 
