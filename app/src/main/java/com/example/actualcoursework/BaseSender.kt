@@ -1,5 +1,4 @@
 package com.example.actualcoursework
-
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -12,7 +11,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
-import java.time.LocalDate
+import java.security.SecureRandom
 import java.util.Queue
 
 abstract class BaseSender(context: Context) {
@@ -49,7 +48,7 @@ abstract class BaseSender(context: Context) {
         scanResponse: AdvertiseData, //each one of these has an overrideable func
         advertisingSetCallback: AdvertisingSetCallback,//meaning child classes can change settings if they want
         parameters: AdvertisingSetParameters,//not that they are sentient
-        duration: Int = 100
+        duration: Int = 200
     ) {
         try {
 
@@ -60,11 +59,11 @@ abstract class BaseSender(context: Context) {
                 scanResponse,
                 null,
                 null,
-                200,
+                duration,
                 0,
                 advertisingSetCallback,
             )
-            advertiser?.stopAdvertisingSet(advertisingSetCallback)
+
         } catch (e: Exception) {
 
             Log.e("Advertise Error", "Error $e")
@@ -73,29 +72,32 @@ abstract class BaseSender(context: Context) {
 
     }
 
-    protected fun encrypt(message:String): String{
+    private val sRandom = SecureRandom()
+    protected fun nextId(sRandom: SecureRandom):String{
+
+        val bytes = ByteArray(4)
+        sRandom.nextBytes(bytes)
+        return bytes.joinToString { "%02x".format(it)}
 
 
-        return message
     }
-
-    protected fun packetBuilder(message: String,ttl: Int = 7 ):MutableList<AdvertiseData> {//overrides in child class based on packet type
-       val preppedPackets:MutableList<AdvertiseData> = mutableListOf()
-        encrypt(message)
-        val packetsToAdd = if (message.length > 10) {
-            message.chunked(10).toMutableList()
-        } else {
-            mutableListOf(message)
+    protected fun packetBuilder(message: String,ttl: Int = 7,recieverId:String ):MutableList<AdvertiseData> {//overrides in child class based on packet type
+       val nextId = nextId(sRandom)
+        val preppedPackets:MutableList<AdvertiseData> = mutableListOf()
+        val ciphermessage = Encryption ().encrypt(message,recieverId,nextId,KeyManagement())
+        val chunkSize =10;
+        val packetsToAdd: List<ByteArray> = (0 until ciphermessage.size step chunkSize).map { start ->
+            ciphermessage.copyOfRange(start, minOf(start + chunkSize, ciphermessage.size))
         }
-        val totalPackets=packetsToAdd.size-1
-        val messageId=(message+ LocalDate.now()).hashCode().toString().take(4)//subject to change
+        val numofpackets =packetsToAdd.size-1
+       val totalPackets =if(numofpackets<10) "0$numofpackets" else numofpackets.toString()
 
-        packetsToAdd.forEachIndexed { index, string ->
-            val currentIndex = if (index > 10) { "$index" } else { "0$index" }
+        packetsToAdd.forEachIndexed { index, byte ->
+            val currentIndex = if (index >= 10) { "$index" } else { "0$index" }
             preppedPackets.add(AdvertiseData.Builder()
                 .addManufacturerData(
                     0xFFFF,
-                    (currentIndex + totalPackets  + string +ttl + messageId).toByteArray()
+                    (currentIndex + totalPackets).toByteArray()+ byte +  (ttl.toString() + nextId).toByteArray()
                 )
                 .setIncludeDeviceName(false)
                 .build())

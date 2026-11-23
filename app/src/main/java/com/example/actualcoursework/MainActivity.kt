@@ -44,6 +44,7 @@ import kotlinx.coroutines.SupervisorJob
 
 class MainActivity : ComponentActivity() {
 
+
     private var receivedMessage by mutableStateOf("No message received yet")
     private var receiver: MessageReceiver? = null
     private var sentDeviceName by mutableStateOf("")
@@ -156,6 +157,7 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
+        KeyManagement ().generateKeyPair("User0")
 
 
         val missing = permissions.filter {
